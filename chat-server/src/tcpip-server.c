@@ -20,12 +20,13 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #define PORT 5000
 #define IP_ADDR 2887388853
 #define MAX_NUM_CLIENTS 10
 
-#define PORT_DELIM ":"
+#define PORT_DELIM ";"
 #define IP_DELIM "!"
 #define NAME_DELIM "?"
 #define NULL_TERM '\0'
@@ -38,6 +39,10 @@
 
 void *handleClient(void *socket_to_handle);
 void parseClientMessage(char *fromClient, char **splitMessage);
+char *makeMessage(char *clientIP, char *clientName, char *message);
+bool isMessageValid(char *fromClient);
+
+int clientSockets[MAX_NUM_CLIENTS];
 
 // global to keep track of the number of connections
 static int nClients = 0;
@@ -79,7 +84,11 @@ int main(void)
   struct sockaddr_in client_addr, server_addr;
   int len, i;
   FILE *p;
-  char *fromClient = "[client's listening port]:[client's IP]![client name]?[message]";
+
+  for (i = 0; i < sizeof(clientSockets); i++)
+  {
+    clientSockets[i] = 0;
+  }
 
   pthread_t clientHandler;
   pthread_attr_t attr;
@@ -164,6 +173,16 @@ int main(void)
     nClients++;
 
     // NOTE: store client's socket in array to keep track of active clients
+    for (i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
+    {
+      if (clientSockets[i] == 0)
+      {
+        printf("socket %d was %d\n", i, clientSockets[i]);
+        clientSockets[i] = client_socket;
+        printf("socket %d is now %d\n", i, clientSockets[i]);
+        break;
+      }
+    }
 
     //create thread
     pthread_attr_init(&attr);
@@ -185,13 +204,14 @@ void *handleClient(void *socket_to_handle)
   char buffer[BUFSIZ];
   int client_socket = *((int *)socket_to_handle);
   int bytesRead = 0;
+  int i = 0;
 
   while (1)
   {
     // allocate memory for incoming message
     char **splitMessage = (char **)calloc(NUM_MESSAGE_ELEMENTS, sizeof(char *));
 
-    for (int i = 0; i < NUM_MESSAGE_ELEMENTS; i++)
+    for (i = 0; i < NUM_MESSAGE_ELEMENTS; i++)
     {
       splitMessage[i] = (char *)calloc(BUFSIZ, sizeof(char));
     }
@@ -208,6 +228,12 @@ void *handleClient(void *socket_to_handle)
       printf("message recieved: %s\n", buffer);
     }
 
+    if (!isMessageValid(buffer))
+    {
+      printf("Error! Invalid message structure.\n");
+      break;
+    }
+
     parseClientMessage(buffer, splitMessage);
 
     printf("PORT:\t\t %s\n", splitMessage[INDEX_PORT]);
@@ -215,13 +241,26 @@ void *handleClient(void *socket_to_handle)
     printf("CLIENT NAME: %s\n", splitMessage[INDEX_CLIENT_NAME]);
     printf("MESSAGE:\t %s\n", splitMessage[INDEX_MESSAGE]);
 
-    write(client_socket, "i got your message", BUFSIZ);
+    //write(client_socket, "I got your message!", BUFSIZ);
+
+    char *response = makeMessage(splitMessage[INDEX_IP], splitMessage[INDEX_CLIENT_NAME], splitMessage[INDEX_MESSAGE]);
+
+    for (i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
+    {
+      if (clientSockets[i] != 0)
+      {
+        printf("socket %d is %d\n", i, clientSockets[i]);
+        write(client_socket, response, strlen(response));
+      }
+    }
+
+    free(response);
 
     /* Clear out the Buffer */
     memset(buffer, 0, BUFSIZ);
 
     // free memory!
-    for (int i = 0; i < NUM_MESSAGE_ELEMENTS; i++)
+    for (i = 0; i < NUM_MESSAGE_ELEMENTS; i++)
     {
       free(splitMessage[i]);
     }
@@ -265,4 +304,42 @@ void parseClientMessage(char *fromClient, char **splitMessage)
   // copy to message string, ignoring all previous elements
   memcpy(splitMessage[INDEX_MESSAGE], fromClient + portEnd + ipEnd + clientNameEnd + strlen(IP_DELIM) + strlen(PORT_DELIM) + strlen(NAME_DELIM), messageEnd);
   splitMessage[INDEX_MESSAGE][messageEnd] = NULL_TERM;
+}
+
+char *makeMessage(char *clientIP, char *clientName, char *message)
+{
+  char *retString = (char *)malloc((strlen(clientName) + strlen(message) + 1) * sizeof(char));
+  // strcat(retString, clientIP);
+  // strcat(retString, IP_DELIM);
+  strcat(retString, clientName);
+  strcat(retString, NAME_DELIM);
+  strcat(retString, message);
+
+  printf("message to send: %s\n", retString);
+
+  return retString;
+}
+
+bool isMessageValid(char *fromClient)
+{
+  int i = 0;
+  int elementCount = 0;
+
+  while (fromClient[i] != NULL_TERM)
+  {
+    if (fromClient[i] == PORT_DELIM[0] || fromClient[i] == IP_DELIM[0] || fromClient[i] == NAME_DELIM[0])
+    {
+      elementCount++;
+    }
+    i++;
+  }
+
+  printf("elements: %d\n", elementCount);
+
+  if (elementCount == NUM_MESSAGE_ELEMENTS - 1)
+  {
+    return true;
+  }
+
+  return false;
 }
