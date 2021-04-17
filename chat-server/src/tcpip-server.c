@@ -43,7 +43,7 @@
 #define NUM_MESSAGE_ELEMENTS 4
 
 // time out interval time (3 intervals)
-#define SERVER_TIMEOUT_INTERVAL_TIME 10
+#define SERVER_TIMEOUT_INTERVAL_TIME 100
 #define SERVER_INTERVAL_COUNT 3
 
 void *handleClient(void *socket_to_handle);
@@ -227,6 +227,7 @@ void *handleClient(void *socketToHandle)
 
     //get client message
     bytesRead = read(client_socket, buffer, BUFSIZ);
+    printf("read %d bytes\n", bytesRead);
     if (bytesRead <= 0)
     {
       printf("Client disconnected!\n");
@@ -237,31 +238,34 @@ void *handleClient(void *socketToHandle)
     }
     else
     {
-      printf("message recieved: %s\n", buffer);
+      printf("message received: %s\n", buffer);
     }
 
     if (!isMessageValid(buffer))
     {
       printf("Error! Invalid message structure.\n");
+      write(client_socket, "INVALID MESSAGE", strlen("INVALID MESSAGE"));
       break;
     }
-
-    parseClientMessage(buffer, splitMessage);
-
-    printf("PORT:\t\t %s\n", splitMessage[INDEX_PORT]);
-    printf("IP:\t\t\t %s\n", splitMessage[INDEX_IP]);
-    printf("CLIENT NAME: %s\n", splitMessage[INDEX_CLIENT_NAME]);
-    printf("MESSAGE:\t %s\n", splitMessage[INDEX_MESSAGE]);
-
-    // since malloc is used in makeMessage, need to free the response
-    response = makeMessage(splitMessage[INDEX_IP], splitMessage[INDEX_CLIENT_NAME], splitMessage[INDEX_MESSAGE]);
-
-    for (i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
+    else
     {
-      if (clientSockets[i] != 0)
+      parseClientMessage(buffer, splitMessage);
+
+      printf("PORT:\t\t %s\n", splitMessage[INDEX_PORT]);
+      printf("IP:\t\t\t %s\n", splitMessage[INDEX_IP]);
+      printf("CLIENT NAME: %s\n", splitMessage[INDEX_CLIENT_NAME]);
+      printf("MESSAGE:\t %s\n", splitMessage[INDEX_MESSAGE]);
+
+      // since malloc is used in makeMessage, need to free the response
+      response = makeMessage(splitMessage[INDEX_IP], splitMessage[INDEX_CLIENT_NAME], splitMessage[INDEX_MESSAGE]);
+
+      for (i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
       {
-        printf("sent to socket %d\n", clientSockets[i]);
-        write(clientSockets[i], response, strlen(response));
+        if (clientSockets[i] != 0)
+        {
+          printf("sent to socket %d\n", clientSockets[i]);
+          write(clientSockets[i], response, strlen(response));
+        }
       }
     }
 
@@ -344,7 +348,8 @@ void parseClientMessage(char *fromClient, char **splitMessage)
 */
 char *makeMessage(char *clientIP, char *clientName, char *message)
 {
-  char *retString = (char *)malloc((strlen(clientIP) + strlen(clientName) + strlen(message) + 1 + 1) * sizeof(char));
+  char *retString = (char *)malloc((strlen(clientIP) + strlen(clientName) + strlen(message) + strlen(IP_DELIM) + strlen(NAME_DELIM) + 1) * sizeof(char));
+  // check null 
 
   strcat(retString, clientIP);
   strcat(retString, IP_DELIM);
@@ -412,18 +417,16 @@ void removeClientSocket(int socketToRemove)
   }
 }
 
-
-
 bool allClientsGone(void)
 {
   int counter = 0;
 
   // scan the array of connected clients and accumulate counter
-  for (int i = 0; i < sizeof(clientSockets)/sizeof(int); i++)
+  for (int i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
   {
     counter += clientSockets[i];
   }
-  
+
   // counter is 0 if there are no clients left
   if (counter == 0)
   {
