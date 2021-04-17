@@ -179,12 +179,17 @@ void input_win(ThreadArgs* threadArgs)
     write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
     memset(&formattedMsg, 0, sizeof(formattedMsg));
 
-    if(releaseCursorSem() == OPERATION_FAILED || getOrCreateCursorSem() == OPERATION_FAILED)
+    if(releaseCursorSem() == OPERATION_FAILED)
     {
         *exitFlag = true;
         return;
     }
-    usleep(250);
+    usleep(1000);
+    if(getOrCreateCursorSem() == OPERATION_FAILED)
+    {
+        *exitFlag = true;
+        return;
+    }
 
     sprintf(formattedMsg, "%s;%s", threadArgs->userName, secondHalfOfParcelledMsg);
     write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
