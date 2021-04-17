@@ -32,6 +32,8 @@ void input_win(ThreadArgs* threadArgs)
   char inputBuffer[BUFSIZ] = { 0 };
   char quitString[] = ">>bye<<\n";
   char formattedMsg[BUFSIZ] = { 0 };
+  char firstHalfOfParcelledMsg[MAX_LEN_OF_MESSAGE + 1] = { 0 };
+  char secondHalfOfParcelledMsg[MAX_LEN_OF_MESSAGE + 1] = { 0 };
 
 
   ///////////////////////////////////////////////////////
@@ -146,6 +148,9 @@ void input_win(ThreadArgs* threadArgs)
   }
 
 
+  // 
+
+
   //////////////////////////////////////////////////////////
   // Check if user chose to quit, parcel and send message //
   //////////////////////////////////////////////////////////
@@ -159,13 +164,46 @@ void input_win(ThreadArgs* threadArgs)
   {
     *exitFlag = true; // Set flag telling listening thread to exit
   }
-  sprintf(formattedMsg, "%d;%s!%s?%s", 5000, threadArgs->userIP, threadArgs->userName, inputBuffer);
-  write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
-  memset(&formattedMsg, 0, sizeof(formattedMsg));
+  else if(strlen(inputBuffer) > MAX_LEN_OF_MESSAGE)
+  {
+    for(int i = 0; i < MAX_LEN_OF_MESSAGE; i++)
+    {
+        firstHalfOfParcelledMsg[i] = inputBuffer[i];
+    }
+    for(int i = 0; i < strlen(inputBuffer); i++)
+    {
+        secondHalfOfParcelledMsg[i] = inputBuffer[i + MAX_LEN_OF_MESSAGE];
+    }
+    // Send first parcelled message
+    sprintf(formattedMsg, "%s;%s", threadArgs->userName, firstHalfOfParcelledMsg);
+    write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
+    memset(&formattedMsg, 0, sizeof(formattedMsg));
 
+    if(releaseCursorSem() == OPERATION_FAILED || getOrCreateCursorSem() == OPERATION_FAILED)
+    {
+        *exitFlag = true;
+        return;
+    }
+    usleep(250);
 
+    sprintf(formattedMsg, "%s;%s", threadArgs->userName, secondHalfOfParcelledMsg);
+    write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
+    memset(&formattedMsg, 0, sizeof(formattedMsg));
+  }
+  else
+  {
+    sprintf(formattedMsg, "%s;%s", threadArgs->userName, inputBuffer);
+    write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
+    memset(&formattedMsg, 0, sizeof(formattedMsg));
+  }
+  
+  
   // [client's listening port][semicolon]
   // [client's IP][exclamation mark]
+  // [client name][question mark]
+  // [message]
+
+  // new protocol
   // [client name][question mark]
   // [message]
 

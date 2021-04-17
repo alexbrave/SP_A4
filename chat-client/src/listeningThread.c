@@ -20,6 +20,7 @@ void* listeningThreadFunc(void* arg)
     WINDOW* win = threadArgs->win;
     bool* exitFlag = threadArgs->exitFlag;
     int serverSocket = *(threadArgs->serverSocket);
+    int readResult = 0;
 
 
     // Here we initialize data that we'll get from the incoming message
@@ -55,9 +56,8 @@ void* listeningThreadFunc(void* arg)
         }        
         else
         { 
-            // WILL PROBABLY HAVE TO LEAVE THIS AS A BLOCKING CALL BECAUSE HAVING IT NON-BLOCKING SEEMS
-            // TO BE CAUSING ISSUES
-            if(read(serverSocket, incomingMsgBuffer, BUFSIZ) != OPERATION_FAILED || incomingMsgBuffer[0] == '\0') // Read data from socket
+            readResult = read(serverSocket, incomingMsgBuffer, BUFSIZ);
+            if(readResult > OPERATION_SUCCESS && incomingMsgBuffer[0] != '\0') // Read data from socket
             {
                 memset(&latestMsg, 0, sizeof(latestMsg));           // Clear our latest message holder struct
                 if(parseIncomingMsg(&latestMsg, incomingMsgBuffer, threadArgs->userName) == OPERATION_SUCCESS)
@@ -66,8 +66,9 @@ void* listeningThreadFunc(void* arg)
                 }    // Parse string into custom msg struct
                 
                 memset(incomingMsgBuffer, 0, sizeof(incomingMsgBuffer));    // Reset incoming msg buffer to 0
-            }     
+            }
 
+            // WRITE ELSE STATEMENT
             if (last10MsgLines.messagesAvailable > 0) // Print all available messages
             {
                 getyx(win, savedCursorY, savedCursorX); // Save the cursors position
@@ -104,7 +105,7 @@ int parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString, char* thisUs
     {
         return OPERATION_FAILED;
     }
-    for(int i = 0; newMsgString[counter] != '!' && counter <=incomingMsgStringLen; i++)
+    for(int i = 0; newMsgString[counter] != '|' && counter <=incomingMsgStringLen; i++)
     {
         newMsgStruct->recievedIPAddr[i] = newMsgString[counter];
         counter++;
@@ -117,7 +118,7 @@ int parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString, char* thisUs
 
     counter++; // Skip the exclamation mark separating ip address and other clients name
 
-    for(int i = 0; newMsgString[counter] != '?' && counter <=incomingMsgStringLen; i++)
+    for(int i = 0; newMsgString[counter] != ';' && counter <=incomingMsgStringLen; i++)
     {
         newMsgStruct->usersName[i] = newMsgString[counter];
         counter++;
