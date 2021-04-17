@@ -35,11 +35,11 @@ int setUpSocket(int* serverSocket, struct hostent* host)
 
 
   // initialize struct to bind client socket to specific IP address and Port
-  clientHOSTENT = gethostbyname("172.26.177.173");
-  memset (&clientAddress, 0, sizeof (clientAddress));
-  clientAddress.sin_family = AF_INET;
-  memcpy (&clientAddress.sin_addr, clientHOSTENT->h_addr, clientHOSTENT->h_length);
-  clientAddress.sin_port = htons(PORT);
+  // clientHOSTENT = gethostbyname("172.26.177.173");
+  // memset (&clientAddress, 0, sizeof (clientAddress));
+  // clientAddress.sin_family = AF_INET;
+  // memcpy (&clientAddress.sin_addr, clientHOSTENT->h_addr, clientHOSTENT->h_length);
+  // clientAddress.sin_port = htons(PORT);
   
 
   // get a socket for communications

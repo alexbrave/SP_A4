@@ -10,11 +10,7 @@
 */
 
 
-
-
 #include "../inc/chatClient.h"
-
-
 
 
 // ADD FUNCTION HEADER
@@ -41,7 +37,11 @@ void input_win(ThreadArgs* threadArgs)
   ///////////////////////////////////////////////////////
   // Set up window, write MESSAGES banner, and chevron //
   ///////////////////////////////////////////////////////
-  getOrCreateCursorSem();    
+  if(getOrCreateCursorSem() == OPERATION_FAILED) // exit if getting semaphore failed
+  {
+    *exitFlag == true;
+    return;
+  }    
   blankWin(win);                          /* make it a clean window */
 
   getmaxyx(win, maxrow, maxcol);          /* get window size */
@@ -52,7 +52,12 @@ void input_win(ThreadArgs* threadArgs)
 
   wmove(win, TOP, LEFT);                  /* position cusor at top */
   printChevron(win, TOP, LEFT);
-  releaseCursorSem();
+  
+  if(releaseCursorSem() == OPERATION_FAILED) // exit if releasing semaphore failed
+  {
+    *exitFlag == true;
+    return;
+  } 
 
 
 
@@ -73,7 +78,11 @@ void input_win(ThreadArgs* threadArgs)
     }
 
     // First get the cursor semaphore so that only the input thread can control the cursor
-    semCommandResult = getOrCreateCursorSem(); // LOG AND RETURN IF THIS DOESN'T WORK
+    if(getOrCreateCursorSem() == OPERATION_FAILED) // exit if getting semaphore failed
+    {
+      *exitFlag == true;
+      return;
+    } 
 
     inputBuffer[i] = ch;                       /* '\n' not copied */
     if (col < maxcol)                 /* if within window */  // Removed -2 April 13, 2021
@@ -90,7 +99,6 @@ void input_win(ThreadArgs* threadArgs)
         wmove(win, row, col);           /* move cursor to the beginning */
         printChevron(win, row, col);
         wclrtoeol(win);                 /* clear from cursor to eol */
-        // box(win, 0, 0);                 /* draw the box again */
       } 
       else
       {
@@ -107,25 +115,54 @@ void input_win(ThreadArgs* threadArgs)
 
     // Release the cursor semaphore so it can be used by the listening thread 
     // if it receives a message
-    semCommandResult = releaseCursorSem(); // LOG AND RETURN IF THIS DOESN'T WORK
+    if(releaseCursorSem() == OPERATION_FAILED) // exit if releasing semaphore failed
+    {
+      *exitFlag == true;
+      return;
+    } 
 
     usleep(100);
     // sleep(3);
   }
 
+  // If the user entered 80 characters, but hasn't pressed enter, 
+  // keep waiting until they press enter
+  while (ch != '\n')
+  {
+    if(getOrCreateCursorSem() == OPERATION_FAILED) // exit if getting semaphore failed
+    {
+      *exitFlag == true;
+      return;
+    }
+
+    ch = wgetch(win);
+
+    if(releaseCursorSem() == OPERATION_FAILED) // exit if releasing semaphore failed
+    {
+      *exitFlag == true;
+      return;
+    } 
+    usleep(100);
+  }
 
 
-  //////////////////////////////////////////////////
-  // Check if user chose to quit and Send Message //
-  //////////////////////////////////////////////////
-  semCommandResult = getOrCreateCursorSem(); // LOG AND RETURN IF THIS DOESN'T WORK
+  //////////////////////////////////////////////////////////
+  // Check if user chose to quit, parcel and send message //
+  //////////////////////////////////////////////////////////
+  if(getOrCreateCursorSem() == OPERATION_FAILED) // exit if getting semaphore failed
+  {
+      *exitFlag == true;
+      return;
+  } 
+  
   if(strncmp(inputBuffer, quitString, LEN_OF_QUIT_STRING) == 0)
   {
     *exitFlag = true; // Set flag telling listening thread to exit
   }
-  sprintf(formattedMsg, "%d;%s!%s?%s", 5000, "172.26.177.173", threadArgs->userName, inputBuffer);
-  write(serverSocket, formattedMsg, sizeof(formattedMsg));
+  sprintf(formattedMsg, "%d;%s!%s?%s", 5000, threadArgs->userIP, threadArgs->userName, inputBuffer);
+  write(serverSocket, formattedMsg, strlen(formattedMsg) + 1);
   memset(&formattedMsg, 0, sizeof(formattedMsg));
+
 
   // [client's listening port][semicolon]
   // [client's IP][exclamation mark]
@@ -133,20 +170,11 @@ void input_win(ThreadArgs* threadArgs)
   // [message]
 
 
-  semCommandResult = releaseCursorSem(); // LOG AND RETURN IF THIS DOESN'T WORK
-
-
-  // If the user entered 80 characters, but hasn't pressed enter, 
-  // keep waiting until they press enter
-  while (ch != '\n')
+  if(releaseCursorSem() == OPERATION_FAILED) // exit if releasing semaphore failed
   {
-    getOrCreateCursorSem();
-    ch = wgetch(win);
-    releaseCursorSem();
-    usleep(100);
-  }
-
-
+      *exitFlag == true;
+      return;
+  } 
 }  
 
 

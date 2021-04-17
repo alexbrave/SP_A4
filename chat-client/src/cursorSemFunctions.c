@@ -101,4 +101,22 @@ int releaseCursorSem(void)
 
 
 // ADD FUNCTION TO DELETE SEMAPHORE
+void deleteCursorSem(void)  
+{
+    // We want to get a key using ftok for our semaphore to be public for all processes
+    // that want to use it
+    key_t semaphoreKey = 0;
 
+    // We'll use the semaphore key that we got to then get the semaphore ID
+    int semaphoreID = 0;
+
+    int returnCode = 0;
+    
+    semaphoreKey = ftok(CURRENT_DIRECTORY, SEM_FTOK_ID);
+
+    // Check if the semaphore already exists, hopefully it does
+    semaphoreID = semget(semaphoreKey, NUM_OF_SEMS, CHECK_SEM_EXISTS);
+
+    // Delete semaphore
+    returnCode = semctl(semaphoreID, 0, IPC_RMID);
+}

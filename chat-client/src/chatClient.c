@@ -11,9 +11,12 @@
 */
 
 #include "../inc/chatClient.h"
+#include <ifaddrs.h>
+
 
 
 int parseArguments(char* parsedUserName, char* parsedServerName, char* args[]);
+int getThisMachinesPublicIP(char* thisMachinesPublicIP);
 
 
 int main(int argc, char *argv[])
@@ -69,18 +72,14 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+  // Get this machines IP address using ens33 or eth0 - BE CAREFUL, THE SERVER SHOULD REALLY BE THE ONE GETTING THE IP AND PORT
+  getThisMachinesPublicIP(userIP);
 
 
-  // Set up socket
+  ///////////////////
+  // Set up socket //
+  ///////////////////
   socketSetupResult = setUpSocket(&serverSocket, host);
-
-
-  // write(serverSocket, testBuffer, sizeof(testBuffer));
-  // memset(&testBuffer, 0, sizeof(testBuffer));
-  // read(serverSocket, testBuffer, sizeof(testBuffer));
-
-
-  // printf("%s", testBuffer);
 
   if(socketSetupResult == CANT_GET_SOCKET)
   {
@@ -103,13 +102,14 @@ int main(int argc, char *argv[])
   threadArgs.serverSocket = &serverSocket;
   threadArgs.win = inputWindow;
   threadArgs.userName = userName;
+  threadArgs.userIP = userIP;
 
 
   ////////////////////////////
   // Start listening thread //
   ////////////////////////////
 
-  //that will also write incoming messages to the screen
+  // this thread will also write incoming messages to the screen
   if (pthread_create(&listeningThreadID, NULL, listeningThreadFunc, (void *)&threadArgs) != 0) 
   {
     printf ("Arghh !! I cannot start listening thread\n");
@@ -123,14 +123,17 @@ int main(int argc, char *argv[])
     input_win(&threadArgs);
   }
 
+
+  // clean up resources when done
   close(serverSocket);
 
   delwin(inputWindow);
+
   endwin();
-  // CLEAN UP RESOURCES
+
+  deleteCursorSem();
 
   return 0;
-    
 }
 
 
@@ -165,6 +168,57 @@ int parseArguments(char* parsedUserName, char* parsedServerName, char* args[])
 
 
 
+
+// ADD FUNCTION HEADER COMMENT - DECIDE IF WE'RE KEEPING THIS
+int getThisMachinesPublicIP(char* thisMachinesPublicIP)
+{
+  struct ifaddrs* startingAddress = NULL; // Starting address of linked list of address
+  struct ifaddrs* currentAddress = NULL;  // Current address as we go through list
+  int family = 0;
+  int operationResult = 0;
+  char host[NI_MAXHOST];   // Where the address is stored once it's found
+
+  if (getifaddrs(&startingAddress) == OPERATION_FAILED) // Check if we can get starting address
+  {
+    return OPERATION_FAILED;
+  }
+
+  // Go through each address on linked list and find one that is of the family AF_INET
+  for (currentAddress = startingAddress; currentAddress != NULL; currentAddress = currentAddress->ifa_next) 
+  {
+    if (currentAddress->ifa_addr == NULL)
+    {
+      continue;
+    }
+
+    operationResult=getnameinfo(currentAddress->ifa_addr,sizeof(struct sockaddr_in),host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+
+    // Get the ipv4 address of ens33 if that is the name of the current address in the list
+    if((strcmp(currentAddress->ifa_name,"ens33")==0)&&(currentAddress->ifa_addr->sa_family==AF_INET))
+    {
+      if (operationResult != 0)
+      {
+        freeifaddrs(startingAddress);
+        return OPERATION_FAILED;
+      }
+      sprintf(thisMachinesPublicIP, "%s", host); // We found our IP address
+      break; 
+    }
+    // Or get the ipv4 of eth0 if that is the current address
+    else if((strcmp(currentAddress->ifa_name,"eth0")==0)&&(currentAddress->ifa_addr->sa_family==AF_INET))
+    {
+      if (operationResult != 0)
+      {
+        freeifaddrs(startingAddress);
+        return OPERATION_FAILED;
+      }
+      sprintf(thisMachinesPublicIP, "%s", host); // We found our IP address
+      break; 
+    }
+  }
+
+  freeifaddrs(startingAddress);
+}
 
 
 

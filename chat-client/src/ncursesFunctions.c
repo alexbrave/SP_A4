@@ -97,7 +97,7 @@ int writeMessages(WINDOW* win, Last10MsgLines* last10msgs)
   int col = LEFT;
   int semCommandResult = 0;
   int middleColumn = 0;
-  char timeOnReceivedMsg[9] = { 0 };
+  char timeOnReceivedMsg[MAX_LEN_OF_TIME] = { 0 };
       
   getmaxyx(win, maxrow, maxcol);          /* get window size */
   // maxcol -= MAX_COL_RIGHTSIDE_PADDING; // Decided not to add padding
