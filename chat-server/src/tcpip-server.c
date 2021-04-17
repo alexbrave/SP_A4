@@ -1,9 +1,15 @@
 /*
- * tcpip-server.c
- *
- * This is a sample internet server application that will respond
- * to requests on port 5000
- */
+ *  FILE          : tcip-server.c
+ *  PROJECT       : SENG2030-21W-Sec1-System Programming - Assignment #4
+ *  PROGRAMMER    : Andrey Takhtamirov, Alex Braverman
+ *  FIRST VERSION : April 16, 2021 
+ *  DESCRIPTION   : 
+ *			This file contains the main logic for the tcip-server application.
+ *        this program was built on Sean's "sockets-chat" program given in class.
+ *        tcip-server is a chat server to let 2-10 clients communicate with each other
+ *        over tcp/ip on port 5000.
+ *	
+*/
 
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +29,6 @@
 #include <stdbool.h>
 
 #define PORT 5000
-#define IP_ADDR 2887388853
 #define MAX_NUM_CLIENTS 10
 
 #define PORT_DELIM ";"
@@ -37,12 +42,18 @@
 #define INDEX_MESSAGE 3
 #define NUM_MESSAGE_ELEMENTS 4
 
+// time out interval time (3 intervals)
+#define SERVER_TIMEOUT_INTERVAL_TIME 10
+#define SERVER_INTERVAL_COUNT 3
+
 void *handleClient(void *socket_to_handle);
 void parseClientMessage(char *fromClient, char **splitMessage);
 char *makeMessage(char *clientIP, char *clientName, char *message);
 bool isMessageValid(char *fromClient);
+void removeClientSocket(int socketToRemove);
 
-int clientSockets[MAX_NUM_CLIENTS];
+// keep track of the sockets of connected clients
+int clientSockets[MAX_NUM_CLIENTS] = {0};
 
 // global to keep track of the number of connections
 static int nClients = 0;
@@ -66,24 +77,23 @@ void alarmHandler(int signal_number)
   }
 
   // reactivate signal handler for next time ...
-
-  if ((nNoConnections == 3) && (nClients == 0))
+  if ((nNoConnections == SERVER_INTERVAL_COUNT) && (nClients == 0))
   {
     printf("[SERVER WATCH-DOG] : Its been 30 seconds of inactivity ... I'M LEAVING !\n");
     exit(-1);
   }
   signal(signal_number, alarmHandler);
-  alarm(10); // reset alarm
+  alarm(SERVER_TIMEOUT_INTERVAL_TIME); // reset alarm
 }
 
 int main(void)
 {
-  int server_socket, client_socket;
-  int client_len;
-  int client1Gone, client2Gone;
+  int server_socket = 0;
+  int client_socket = 0;
+  int client_len = 0;
+  int i = 0;
+
   struct sockaddr_in client_addr, server_addr;
-  int len, i;
-  FILE *p;
 
   for (i = 0; i < sizeof(clientSockets); i++)
   {
@@ -97,7 +107,7 @@ int main(void)
   /*
    * install a signal handler for SIGCHILD (sent when the child terminates)
    */
-  printf("[SERVER] : Installing signal handler for WATCHDOG ...\n");
+  printf("Installing signal handler for WATCHDOG ...\n");
   signal(SIGALRM, alarmHandler);
   alarm(10);
   fflush(stdout);
@@ -105,11 +115,11 @@ int main(void)
   /*
    * obtain a socket for the server
    */
-  printf("[SERVER] : Obtaining STREAM Socket ...\n");
+  printf("Obtaining STREAM Socket ...\n");
   fflush(stdout);
   if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
   {
-    printf("[SERVER] : Server Socket.getting - FAILED\n");
+    printf("Error! Server socket.getting failed.\n");
     return 1;
   }
 
@@ -121,15 +131,12 @@ int main(void)
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   server_addr.sin_port = htons(PORT);
 
-  char *some_addr = inet_ntoa(server_addr.sin_addr); // return the IP
-  printf("%s\n", some_addr);
-
-  printf("[SERVER] : Binding socket to server address ...\n");
+  printf("Binding socket to server address ...\n");
   fflush(stdout);
 
   if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
   {
-    printf("[SERVER] : Binding of Server Socket - FAILED\n");
+    printf("Error! Binding of server socket failed.\n");
     close(server_socket);
     return 2;
   }
@@ -137,22 +144,15 @@ int main(void)
   /*
    * start listening on the socket
    */
-  printf("[SERVER] : Begin listening on socket for incoming connections ...\n");
+  printf("Listening for incoming connections ...\n");
   fflush(stdout);
   if (listen(server_socket, 5) < 0)
   {
-    printf("[SERVER] : Listen on Socket - FAILED.\n");
+    printf("Error! Listen on socket failed.\n");
     close(server_socket);
     return 3;
   }
 
-  /*
-   * this is a really crappy CHAT program using the socket API
-   *   -- basically the server waits for 2 client connections and
-   *      then does a back and forth chatting exchange.  In reality
-   *      to manage the conversation better, some sharedMemory scheme, etc
-   *      would need to be implemented between the client child processes
-   */
   while (1)
   {
     printf("Waiting for clients...\n");
@@ -164,7 +164,7 @@ int main(void)
     client_len = sizeof(client_addr);
     if ((client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len)) < 0)
     {
-      printf("[SERVER] : Accept Packet from Client - FAILED\n");
+      printf("Error! Failed to accept packet from client\n");
       close(server_socket);
       return 4;
     }
@@ -177,9 +177,7 @@ int main(void)
     {
       if (clientSockets[i] == 0)
       {
-        printf("socket %d was %d\n", i, clientSockets[i]);
         clientSockets[i] = client_socket;
-        printf("socket %d is now %d\n", i, clientSockets[i]);
         break;
       }
     }
@@ -190,19 +188,30 @@ int main(void)
     pthread_create(&clientServiceThreads[nClients], &attr, handleClient, (void *)&client_socket);
   }
 
-  printf("[SERVER] : Everyone is gone ... I'm leaving as well ...\n");
+  printf("All the clients left! Server shutting down.\n");
   fflush(stdout);
   close(server_socket);
 
   return 0;
 }
 
-void *handleClient(void *socket_to_handle)
+/*
+* FUNCTION 		: handleClient
+* DESCRIPTION 	: handles a chat client, reading a message on the given socket
+                    and sharing the message to the other clients. The received
+                    message must be of a specific format to be considered valid
+* PARAMETERS 	: void *socketToHandle
+                    : pointer to the socket (int) which will be read and written to
+* RETURNS 		: void
+*/
+void *handleClient(void *socketToHandle)
 {
-  printf("New thread\n");
+  char *response = NULL;
+
+  printf("New thread clients: %d\n", nClients);
   // used for accepting incoming command and also holding the command's response
   char buffer[BUFSIZ];
-  int client_socket = *((int *)socket_to_handle);
+  int client_socket = *((int *)socketToHandle);
   int bytesRead = 0;
   int i = 0;
 
@@ -218,9 +227,12 @@ void *handleClient(void *socket_to_handle)
 
     //get client message
     bytesRead = read(client_socket, buffer, BUFSIZ);
-    if (bytesRead == 0)
+    if (bytesRead <= 0)
     {
-      printf("No bytes read!\n");
+      printf("Client disconnected!\n");
+      //remove client from clientSockets array (client logged off)
+      removeClientSocket(client_socket);
+      nClients--;
       break;
     }
     else
@@ -241,25 +253,25 @@ void *handleClient(void *socket_to_handle)
     printf("CLIENT NAME: %s\n", splitMessage[INDEX_CLIENT_NAME]);
     printf("MESSAGE:\t %s\n", splitMessage[INDEX_MESSAGE]);
 
-    //write(client_socket, "I got your message!", BUFSIZ);
-
-    char *response = makeMessage(splitMessage[INDEX_IP], splitMessage[INDEX_CLIENT_NAME], splitMessage[INDEX_MESSAGE]);
+    // since malloc is used in makeMessage, need to free the response
+    response = makeMessage(splitMessage[INDEX_IP], splitMessage[INDEX_CLIENT_NAME], splitMessage[INDEX_MESSAGE]);
 
     for (i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
     {
       if (clientSockets[i] != 0)
       {
-        printf("socket %d is %d\n", i, clientSockets[i]);
-        write(client_socket, response, strlen(response));
+        printf("sent to socket %d\n", clientSockets[i]);
+        write(clientSockets[i], response, strlen(response));
       }
     }
 
+    // free response
     free(response);
 
     /* Clear out the Buffer */
     memset(buffer, 0, BUFSIZ);
 
-    // free memory!
+    // free incoming message memory
     for (i = 0; i < NUM_MESSAGE_ELEMENTS; i++)
     {
       free(splitMessage[i]);
@@ -269,6 +281,15 @@ void *handleClient(void *socket_to_handle)
   }
 }
 
+/*
+* FUNCTION 		: parseClientMessage
+* DESCRIPTION 	: parses a given message into an array of strings (split into usable indexes)
+* PARAMETERS 	: char *fromClient
+                    : the message received from the client (unformatted)
+                char **splitMessage
+                    : message elements are split into indexes of the array of strings  
+* RETURNS 		: void
+*/
 void parseClientMessage(char *fromClient, char **splitMessage)
 {
 
@@ -306,11 +327,27 @@ void parseClientMessage(char *fromClient, char **splitMessage)
   splitMessage[INDEX_MESSAGE][messageEnd] = NULL_TERM;
 }
 
+/*
+* FUNCTION 		: makeMessage
+* DESCRIPTION 	: builds a message from given parameters, which will be 
+                    sent back to the client. The returned string needs
+                    to be freed after use.
+* PARAMETERS 	: char *clientIP
+                    : the message author's IP address.
+                char *clientName
+                    : the message author's username.
+                char *message
+                    : the contents of the message.
+* RETURNS 		: char*
+                    : returns the formatted  string which will be 
+                    sent to the client (need to free!)
+*/
 char *makeMessage(char *clientIP, char *clientName, char *message)
 {
-  char *retString = (char *)malloc((strlen(clientName) + strlen(message) + 1) * sizeof(char));
-  // strcat(retString, clientIP);
-  // strcat(retString, IP_DELIM);
+  char *retString = (char *)malloc((strlen(clientIP) + strlen(clientName) + strlen(message) + 1 + 1) * sizeof(char));
+
+  strcat(retString, clientIP);
+  strcat(retString, IP_DELIM);
   strcat(retString, clientName);
   strcat(retString, NAME_DELIM);
   strcat(retString, message);
@@ -320,11 +357,22 @@ char *makeMessage(char *clientIP, char *clientName, char *message)
   return retString;
 }
 
+/*
+* FUNCTION 		: isMessageValid
+* DESCRIPTION 	: checks to see if the message received from a client is of
+                    the valid format. (right number of delimiters)
+* PARAMETERS 	: char *fromClient
+                    : the message received from the client 
+* RETURNS 		: bool
+                    : true  : the message is valid
+                      false : the message is invalid
+*/
 bool isMessageValid(char *fromClient)
 {
   int i = 0;
   int elementCount = 0;
 
+  // iterate through the string, checking that the string has the right delimiter
   while (fromClient[i] != NULL_TERM)
   {
     if (fromClient[i] == PORT_DELIM[0] || fromClient[i] == IP_DELIM[0] || fromClient[i] == NAME_DELIM[0])
@@ -342,4 +390,47 @@ bool isMessageValid(char *fromClient)
   }
 
   return false;
+}
+
+/*
+* FUNCTION 		: removeClientSocket
+* DESCRIPTION 	: removes a given client socket from the array of
+                    active clients.
+* PARAMETERS 	: int socketToRemove
+                  : the socket value which will be located and removed
+* RETURNS 		: void
+*/
+void removeClientSocket(int socketToRemove)
+{
+  for (int i = 0; i < sizeof(clientSockets) / sizeof(int); i++)
+  {
+    if (clientSockets[i] == socketToRemove)
+    {
+      printf("removed %d\n", clientSockets[i]);
+      clientSockets[i] = 0;
+    }
+  }
+}
+
+
+
+bool allClientsGone(void)
+{
+  int counter = 0;
+
+  // scan the array of connected clients and accumulate counter
+  for (int i = 0; i < sizeof(clientSockets)/sizeof(int); i++)
+  {
+    counter += clientSockets[i];
+  }
+  
+  // counter is 0 if there are no clients left
+  if (counter == 0)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }
