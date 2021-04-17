@@ -36,6 +36,7 @@
 
 // Constants used for setting up socket
 #define PORT 5000
+#define CLIENT_LISTEN_PORT 5001
 
 
 
@@ -48,6 +49,7 @@
 #define MAX_LEN_OF_IP_ADDR 15
 #define MAX_LEN_OF_MESSAGE 40
 #define MAX_LEN_OF_USR_NAME 5
+#define MAX_LEN_OF_TIME     13
 #define NULL_TERM 1
 #define LEN_OF_QUIT_STRING 8
 #define HALF_OF_MSGS_TITLE 4
@@ -57,12 +59,14 @@
 #define POS_SECOND_SPACE 24
 #define POS_THIRD_SPACE  27
 #define POS_FOURTH_SPACE 68
+#define MAX_LEN_INCOMING_MSG 63
 
 
 
 // Function return codes
 #define OPERATION_FAILED  -1
 #define OPERATION_SUCCESS 0
+#define SEMAPHORE_ERROR   -2
 
 // Flag parsing error codes
 #define MISFORMATTED_FLAG 1
@@ -121,8 +125,10 @@ void printChar(WINDOW* win, int row, int* col, char charToPrint);
 void input_win(ThreadArgs* threadArgs);
 
 
-void parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString);
+int parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString, char* thisUsersName);
 void reorderLast10Msgs(receivedMSG* latestMsg, Last10MsgLines* last10MsgLines);
+void deleteCursorSem(void);
+
 
 
 

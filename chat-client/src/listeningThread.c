@@ -57,11 +57,14 @@ void* listeningThreadFunc(void* arg)
         { 
             // WILL PROBABLY HAVE TO LEAVE THIS AS A BLOCKING CALL BECAUSE HAVING IT NON-BLOCKING SEEMS
             // TO BE CAUSING ISSUES
-            if(read(serverSocket, incomingMsgBuffer, BUFSIZ) != OPERATION_FAILED) // Read data from socket
+            if(read(serverSocket, incomingMsgBuffer, BUFSIZ) != OPERATION_FAILED || incomingMsgBuffer[0] == '\0') // Read data from socket
             {
                 memset(&latestMsg, 0, sizeof(latestMsg));           // Clear our latest message holder struct
-                parseIncomingMsg(&latestMsg, incomingMsgBuffer);    // Parse string into custom msg struct
-                reorderLast10Msgs(&latestMsg, &last10MsgLines);             // Reorder messages
+                if(parseIncomingMsg(&latestMsg, incomingMsgBuffer, threadArgs->userName) == OPERATION_SUCCESS)
+                {
+                    reorderLast10Msgs(&latestMsg, &last10MsgLines);             // Reorder messages
+                }    // Parse string into custom msg struct
+                
                 memset(incomingMsgBuffer, 0, sizeof(incomingMsgBuffer));    // Reset incoming msg buffer to 0
             }     
 
@@ -85,7 +88,7 @@ void* listeningThreadFunc(void* arg)
 
 
 // ADD PROTOCOL PARSING FUNCTION OR USE A COMMON FUNCTION
-void parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString)
+int parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString, char* thisUsersName)
 {
     ///////////////////////////////////////////////////
     // First parse data that came in with the string //
@@ -94,28 +97,45 @@ void parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString)
     // [client's IP][exclamation mark]
     // [client name][question mark]
     // [message]
-    for(int i = 0; newMsgString[counter] != '!'; i++)
+    int incomingMsgStringLen = strlen(newMsgString);
+
+    // Do some sanity checking to make sure the incoming message is the right length
+    if( incomingMsgStringLen < MAX_LEN_OF_IP_ADDR || incomingMsgStringLen > MAX_LEN_INCOMING_MSG)
+    {
+        return OPERATION_FAILED;
+    }
+    for(int i = 0; newMsgString[counter] != '!' && counter <=incomingMsgStringLen; i++)
     {
         newMsgStruct->recievedIPAddr[i] = newMsgString[counter];
         counter++;
     }
 
+    if (counter >= incomingMsgStringLen) // this means we couldn't parse out what we needed
+    {
+        return OPERATION_FAILED;
+    }
+
     counter++; // Skip the exclamation mark separating ip address and other clients name
 
-    for(int i = 0; newMsgString[counter] != '?'; i++)
+    for(int i = 0; newMsgString[counter] != '?' && counter <=incomingMsgStringLen; i++)
     {
         newMsgStruct->usersName[i] = newMsgString[counter];
         counter++;
     }
 
+    if (counter >= incomingMsgStringLen) // this means we couldn't parse out what we needed
+    {
+        return OPERATION_FAILED;
+    }
+
     counter++; // Skip the question mark separating other clients name and message
 
-    for(int i = 0; newMsgString[counter] != '\0'; i++)
+    for(int i = 0; newMsgString[counter] != '\0' && counter <=incomingMsgStringLen; i++)
     {
         newMsgStruct->messagePayload[i] = newMsgString[counter];
         counter++;
     }
-
+    
 
     //////////////////////////////////////////////
     // Then generate and assign non-string data //
@@ -124,10 +144,17 @@ void parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString)
     bool isThisOurMessage = false;
     int messageID = 0;
 
+    if(strncmp(newMsgStruct->usersName, thisUsersName, MAX_LEN_OF_USR_NAME) == 0)
+    {
+        isThisOurMessage = true;
+    }
+
     time(&currentTime); // set the current time
     newMsgStruct->timeOnReception = currentTime;
     newMsgStruct->isThisOurMessage = isThisOurMessage;
     newMsgStruct->messageID = messageID;
+
+    return OPERATION_SUCCESS;
 }
 
 
