@@ -1,2 +1,0 @@
-- This document makes sure that the directory structure of the project is preserved on github
-- Delete this doc before submitting!
