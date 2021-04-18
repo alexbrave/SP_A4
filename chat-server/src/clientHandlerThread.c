@@ -26,8 +26,6 @@ void *handleClient(void *socketToHandle)
 {
     char *response = NULL;
 
-    printf("New thread clients: %d\n", nClients);
-
     // used for accepting incoming command and also holding the command's response
     char buffer[BUFSIZ] = {0};
     int client_socket = *((int *)socketToHandle);

@@ -104,7 +104,6 @@ int main(void)
 
   while (1)
   {
-    printf("Waiting for clients...\n");
     fflush(stdout);
 
     /*
@@ -128,7 +127,6 @@ int main(void)
       {
         connectedClients[i].clientSocket = client_socket;
         strcpy(connectedClients[i].clientIPAddress, inet_ntoa(client_addr.sin_addr));
-        printf("Connected client socket %d, ip %s\n", connectedClients[i].clientSocket, connectedClients[i].clientIPAddress);
         break;
       }
     }

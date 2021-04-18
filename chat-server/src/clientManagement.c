@@ -25,7 +25,6 @@ void removeClientSocket(int socketToRemove)
     {
         if (connectedClients[i].clientSocket == socketToRemove)
         {
-            printf("removed %d\n", connectedClients[i].clientSocket);
             connectedClients[i].clientSocket = 0;
             memset(connectedClients[i].clientIPAddress, 0, MAX_IP_ADDR_LENGTH);
             break;
