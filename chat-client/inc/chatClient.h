@@ -23,6 +23,8 @@
 #include <sys/sem.h>
 #include <ncurses.h>
 #include <pthread.h>
+#include <signal.h>
+#include <errno.h>
 
 
 #include <ctype.h>

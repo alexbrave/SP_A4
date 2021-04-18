@@ -14,7 +14,13 @@
 
 
 
-// ADD HEADER FUNCTION AND DECIDE IF THIS NEEDS TO BE CHANGED FOR OUR PURPOSES
+/*
+* FUNCTION    : create_newwin
+* DESCRIPTION : creates a new window 
+* PARAMETERS  : int height, int width : the height and width of the current window
+*               int starty, int startx : the starting position of the cursor
+* RETURNS     : WINDOW * : the pointer to the the new window
+*/
 WINDOW *create_newwin(int height, int width, int starty, int startx)
 {       
   WINDOW *local_win;
@@ -26,7 +32,12 @@ WINDOW *create_newwin(int height, int width, int starty, int startx)
 }
 
 
-
+/*
+* FUNCTION    : blankWin
+* DESCRIPTION : makes current window blank of all characters
+* PARAMETERS  : WINDOW *win : the window to clear
+* RETURNS     : void : this function returns nothing
+*/
 void blankWin(WINDOW *win)
 {
   int i;
@@ -45,7 +56,13 @@ void blankWin(WINDOW *win)
 
 
 
-// ADD FUNCTION HEADER
+/*
+* FUNCTION    : printChevron
+* DESCRIPTION : prints the chevron indicating where the user is in their input
+* PARAMETERS  : WINDOW *win : the window where the cursor exists
+*               int currentX, int currentY : the current x and y coordinates of the cursor
+* RETURNS     : void : this function returns nothing
+*/
 void printChevron(WINDOW *win, int currentX, int currentY)
 {
   wprintw(win, "%c", '>');                // add chevron indicating what line the user is writing on
@@ -56,7 +73,12 @@ void printChevron(WINDOW *win, int currentX, int currentY)
 
 
 
-// ADD FUNCTION HEADER
+/*
+* FUNCTION    : setUpWindow
+* DESCRIPTION : sets up the window and gives it properties such as scrollok and nodelay
+* PARAMETERS  : WINDOW** inputWindow : double pointer to the window to set up
+* RETURNS     : void : this function returns nothing
+*/
 void setUpWindow(WINDOW** inputWindow)
 {
   int inputWinStartx = 0; 
@@ -86,7 +108,13 @@ void setUpWindow(WINDOW** inputWindow)
 
 
 
-// ADD FUNCTION HEADER
+/*
+* FUNCTION    : writeMessages
+* DESCRIPTION : this function writes the all the messages in the message list struct to the screen
+* PARAMETERS  : WINDOW* win : the window to write the messages to
+*               Last10MsgLines* last10msgs : the struct containing the last 10 messages
+* RETURNS     : int : actually doesn't return anything
+*/
 int writeMessages(WINDOW* win, Last10MsgLines* last10msgs)
 {
   int counter = 0;
@@ -209,7 +237,13 @@ int writeMessages(WINDOW* win, Last10MsgLines* last10msgs)
 
 
 
-// ADD FUNCTION HEADER COMMENT
+/*
+* FUNCTION    : writeMessageBanner
+* DESCRIPTION : this function writes the message banner "- - - Messages - - -" to the screen
+* PARAMETERS  : WINDOW* win : the window to write the messages to
+*               Last10MsgLines* last10msgs : the struct containing the last 10 messages
+* RETURNS     : int : actually doesn't return anything
+*/
 void writeMessageBanner(WINDOW* win)
 {
 

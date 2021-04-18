@@ -12,7 +12,13 @@
 
 
 
-// ADD FUNCTION HEADER
+/*
+* FUNCTION    : listeningThreadFunc
+* DESCRIPTION : the listening thread that will get messages recieved from the server, and will get the semaphore
+*               to control the cursor and write the messages to the screen.
+* PARAMETERS  : void* arg: (ThreadArgs* threadArgs) : contains all the arguments needed for the threads to share
+* RETURNS : void* : no return for this functions 
+*/
 void* listeningThreadFunc(void* arg)
 {
     // Get data from the thread arguments, such as the window pointer, exit flag, and server socket
@@ -29,7 +35,7 @@ void* listeningThreadFunc(void* arg)
     char otherClientMsg[BUFSIZ] = { 0 };
 
 
-    void* voidPointer = NULL; //REMOVE LATER
+    void* voidPointer = NULL; 
     int savedCursorX = 0;   // Cursor coordinates so that we can save the cursors location
     int savedCursorY = 0;
     time_t rawtime;
@@ -60,15 +66,16 @@ void* listeningThreadFunc(void* arg)
             if(readResult > OPERATION_SUCCESS && incomingMsgBuffer[0] != '\0') // Read data from socket
             {
                 memset(&latestMsg, 0, sizeof(latestMsg));           // Clear our latest message holder struct
+
+                // Parse string into custom msg struct
                 if(parseIncomingMsg(&latestMsg, incomingMsgBuffer, threadArgs->userName) == OPERATION_SUCCESS)
                 {
                     reorderLast10Msgs(&latestMsg, &last10MsgLines);             // Reorder messages
-                }    // Parse string into custom msg struct
+                }    
                 
                 memset(incomingMsgBuffer, 0, sizeof(incomingMsgBuffer));    // Reset incoming msg buffer to 0
             }
 
-            // WRITE ELSE STATEMENT
             if (last10MsgLines.messagesAvailable > 0) // Print all available messages
             {
                 getyx(win, savedCursorY, savedCursorX); // Save the cursors position
@@ -88,7 +95,14 @@ void* listeningThreadFunc(void* arg)
 
 
 
-// ADD PROTOCOL PARSING FUNCTION OR USE A COMMON FUNCTION
+/*
+* FUNCTION    : parseIncomingMsg
+* DESCRIPTION : parses the incoming message into a receivedMSG struct that will be added to the last 10 messages list
+* PARAMETERS  : receivedMSG* newMsgStruct : struct to be populated with parsed message data
+*               char* newMsgString : the string holding the raw message data
+*               char* thisUsersName : the users name, which is used to determine if message is incoming or outgoing
+* RETURNS : int : returns if parse was sucessful
+*/
 int parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString, char* thisUsersName)
 {
     ///////////////////////////////////////////////////
@@ -160,7 +174,13 @@ int parseIncomingMsg(receivedMSG* newMsgStruct, char* newMsgString, char* thisUs
 
 
 
-// ADD FUNCTION HEADER
+/*
+* FUNCTION    : reorderLast10Msgs
+* DESCRIPTION : reorders message list to add a new message, and delete oldest message if necessary
+* PARAMETERS  : receivedMSG* latestMsg : the message struct containing parsed data from message just recieved
+*               Last10MsgLines* last10MsgLines : pointer to the struct holding last 10 messages
+* RETURNS     : void : no return for this functions
+*/
 void reorderLast10Msgs(receivedMSG* latestMsg, Last10MsgLines* last10MsgLines)
 {
     int counter = 0;
