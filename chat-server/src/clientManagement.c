@@ -53,3 +53,30 @@ char *getClientIP(int clientSocket)
     }
     return NULL;
 }
+
+
+/*
+* FUNCTION 		: allClientsGone
+* DESCRIPTION 	: checks if there are any clients left connected
+* PARAMETERS 	: void 
+* RETURNS 		:   true  : all clients have been disconnected
+*                   false : at least 1 client still connected
+*/
+bool allClientsGone(void)
+{
+  int counter = 0;
+  // scan the array of connected clients and accumulate counter
+  for (int i = 0; i < MAX_NUM_CLIENTS; i++)
+  {
+    counter += connectedClients[i].clientSocket;
+  }
+  // counter is 0 if there are no clients left
+  if (counter == 0)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}

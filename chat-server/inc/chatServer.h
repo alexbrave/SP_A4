@@ -1,3 +1,6 @@
+#ifndef _GLOBAL_H
+#define _GLOBAL_H
+
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -35,7 +38,6 @@
 #define SERVER_INTERVAL_COUNT 3
 
 #define EXIT_WITH_ERROR 1
-#define EXIT_OK 0
 
 typedef struct clientInfo
 {
@@ -49,9 +51,12 @@ typedef struct clientInfo
 // keep track of connected clients
 clientInfo connectedClients[MAX_NUM_CLIENTS];
 
+
 // global to keep track of the number of connections
-static int nClients = 0;
-static int nNoConnections = 0;
+extern int nClients;
+extern int nNoConnections;
+
+int server_socket;
 
 // store threads
 pthread_t clientServiceThreads[MAX_NUM_CLIENTS];
@@ -62,3 +67,6 @@ char *makeMessage(char *clientIP, char *clientName, char *message);
 bool isMessageValid(char *fromClient);
 void removeClientSocket(int socketToRemove);
 char *getClientIP(int clientSocket);
+bool allClientsGone(void);
+
+#endif

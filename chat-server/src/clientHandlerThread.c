@@ -13,6 +13,8 @@
 */
 #include "../inc/chatServer.h"
 
+int nClients;
+
 /*
 * FUNCTION 		: handleClient
 * DESCRIPTION 	: handles a chat client, reading a message on the given socket

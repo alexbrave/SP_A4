@@ -12,6 +12,11 @@
 */
 #include "../inc/chatServer.h"
 
+void closeServerSocket(void);
+
+int nClients;
+int nNoConnections;
+
 /* Watch dog timer - to keep informed and watch how long the server goes without a connection */
 void alarmHandler(int signal_number)
 {
@@ -31,7 +36,8 @@ void alarmHandler(int signal_number)
   if ((nNoConnections == SERVER_INTERVAL_COUNT) && (nClients == 0))
   {
     printf("[SERVER WATCH-DOG] : Its been 30 seconds of inactivity ... I'M LEAVING !\n");
-    exit(-1);
+    closeServerSocket();
+    exit(EXIT_SUCCESS);
   }
   signal(signal_number, alarmHandler);
   alarm(SERVER_TIMEOUT_INTERVAL_TIME); // reset alarm
@@ -39,7 +45,6 @@ void alarmHandler(int signal_number)
 
 int main(void)
 {
-  int server_socket = 0;
   int client_socket = 0;
   int client_len = 0;
   int i = 0;
@@ -102,12 +107,12 @@ int main(void)
     return EXIT_WITH_ERROR;
   }
 
-  while (1)
+  do
   {
     fflush(stdout);
-
+    
     /*
-     * accept a packet from the client1
+     * accept a packet from a client
      */
     client_len = sizeof(client_addr);
     if ((client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len)) < 0)
@@ -135,11 +140,22 @@ int main(void)
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     pthread_create(&clientServiceThreads[nClients], &attr, handleClient, (void *)&client_socket);
-  }
+  } while (!allClientsGone());
 
+  closeServerSocket();
+
+  return EXIT_SUCCESS;
+}
+
+/*
+* FUNCTION 		: closeServerSocket
+* DESCRIPTION 	: closes the server's socket (for program shutdown)
+* PARAMETERS 	: void
+* RETURNS 		: void
+*/
+void closeServerSocket(void)
+{
   printf("All the clients left! Server shutting down.\n");
   fflush(stdout);
   close(server_socket);
-
-  return EXIT_OK;
 }
